@@ -20,11 +20,43 @@ from pprint import pprint as print
 
 def parseEAD(xmlfile):
     with open(xmlfile, 'rb') as xmlrbfile:
-        parse = xmltodict.parse(xmlrbfile)
+        parse = xmltodict.parse(xmlrbfile, force_list={'note'})
 
         ead = parse['ead']
 
     return ead
+
+def parseDID(c):
+
+    did = c['did']
+
+    id = did['@id']
+    code = did['unitid']['#text']
+    title = did['unittitle']
+
+    print(code)
+
+    if c['@level'] == 'file':
+        if 'note' in did:
+            for note in did['note']:
+                if note['@label'] == "NB":
+                    comments = note['p']
+                elif note['@label'] == "ImageId":
+                    scans = note['p'].split(' \n')
+                    print(scans)
+        else:
+            scans = []
+
+        return id, code, title, scans
+
+    else:
+        for k in c:
+            if k not in ['head', '@level', 'did']:
+                if type(c[k]) == list:
+                    for subelement in c[k]:
+                        parseDID(subelement)
+                else:
+                    parseDID(c[k])
 
 def convert(xmlfile, outfile, format='saa'):
     
@@ -44,7 +76,7 @@ def convert(xmlfile, outfile, format='saa'):
 
     # description
 
-    ## meta
+    ## did
 
     collection_id = archdesc['did']['@id']
     collectionNumber = archdesc['did']['unitid']
@@ -55,11 +87,48 @@ def convert(xmlfile, outfile, format='saa'):
     collectionOrigination = archdesc['did']['origination']['@label']
     collectionCorporation = archdesc['did']['origination']['corpname']
 
-    print(archdesc.keys())
-    print(archdesc['odd'].keys())
-
     ## odd
 
+    # descriptive stuff in html
+
+    ## dsc
+
+    dsc = archdesc['dsc']
+
+    # print(archdesc['dsc'].keys())
+
+    for serie in dsc['c01']:
+
+        print(parseDID(serie))
+
+        # if serie =='head':
+        #     continue
+
+        # print(serie.keys())
+        
+        # serie_id = serie['did']['@id']
+        # serieCode = serie['did']['unitid']
+        # serieTitle = serie['did']['unittitle']
+
+        # for subserie in serie['c02']:
+        #     subserie_id = subserie['did']['@id']
+        #     subserieCode = subserie['did']['unitid']
+        #     subserieTitle = subserie['did']['unittitle']
+
+        #     for subgroup in subserie['c03']:
+        #         subgroup_id = subgroup['did']['@id']
+        #         subgroupCode = subgroup['did']['unitid']
+        #         subgroupTitle = subgroup['did']['unittitle']   
+
+        #         print(subgroupTitle)
+
+        #         for inventory in subgroup['c04']:
+        #             file_id = inventory['did']['@id']
+        #             fileCode = inventory['did']['unitid']
+        #             fileTitle = inventory['did']['unittitle'] 
+
+                    
+                    # print(scans)    
     ###
 
 if __name__ == '__main__':
