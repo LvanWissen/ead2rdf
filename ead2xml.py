@@ -16,122 +16,122 @@ import os
 import xmltodict
 from docopt import docopt
 
-from pprint import pprint as print
+from dataclasses import dataclass
+
+
+@dataclass
+class Collection:
+    title: str
+    author: str
+    publisher: str
+    date: str
+
+    collection_id: str
+    collectionNumber: str
+    collectionName: str
+    collectionDate: str
+    collectionLanguage: str
+    collectionRepository: str
+    collectionOrigination: str
+    collectionCorporation: str
+
+    children: list
+
+
+@dataclass(order=True)
+class C:
+    id: str
+    code: str
+    date: str
+    title: str
+    comment: str
+    scans: list
+
+    children: list
+
+    level: str
+
 
 def parseEAD(xmlfile):
     with open(xmlfile, 'rb') as xmlrbfile:
-        parse = xmltodict.parse(xmlrbfile, force_list={'note'})
-
+        parse = xmltodict.parse(xmlrbfile,
+                                force_list={'note', 'c02', 'c03', 'c04'},
+                                dict_constructor=dict)
         ead = parse['ead']
 
     return ead
 
-def parseDID(c):
 
-    did = c['did']
+def parseDsc(serie, parentElement=None):
+
+    did = serie['did']
 
     id = did['@id']
     code = did['unitid']['#text']
+    date = did.get('unitdate')
     title = did['unittitle']
+    comment = None
+    scans = None
 
-    print(code)
-
-    if c['@level'] == 'file':
+    if serie['@level'] == 'file':  # reached the end!
         if 'note' in did:
             for note in did['note']:
                 if note['@label'] == "NB":
-                    comments = note['p']
+                    comment = note['p']
                 elif note['@label'] == "ImageId":
                     scans = note['p'].split(' \n')
-                    print(scans)
         else:
             scans = []
 
-        return id, code, title, scans
+        return C(id,
+                 code,
+                 date,
+                 title,
+                 comment,
+                 scans, [],
+                 level=serie['@level'])
 
     else:
-        for k in c:
+        children = []
+        for k in serie:
             if k not in ['head', '@level', 'did']:
-                if type(c[k]) == list:
-                    for subelement in c[k]:
-                        parseDID(subelement)
-                else:
-                    parseDID(c[k])
+                for subelement in serie[k]:
+                    children.append(parseDsc(subelement))
+
+        return C(id, code, date, title, comment, scans, children,
+                 serie['@level'])
+
 
 def convert(xmlfile, outfile, format='saa'):
-    
-    ead = parseEAD(xmlfile)    
+
+    ead = parseEAD(xmlfile)
 
     head = ead['eadheader']
     archdesc = ead['archdesc']
 
-    # head
+    collection = Collection(
+        # collectionNumber=head['eadid'],
+        title=head['filedesc']['titlestmt']['titleproper'],
+        author=head['filedesc']['titlestmt'].get('author'),
+        publisher=head['filedesc']['publicationstmt']['publisher'],
+        date=head['filedesc']['publicationstmt'].get('date'),
+        collection_id=archdesc['did']['@id'],
+        collectionNumber=archdesc['did']['unitid'],
+        collectionName=archdesc['did']['unittitle'],
+        collectionDate=archdesc['did']['unitdate'],
+        collectionLanguage=archdesc['did']['langmaterial'],
+        collectionRepository=archdesc['did']['repository']['corpname'],
+        collectionOrigination=archdesc['did']['origination']['@label'],
+        collectionCorporation=archdesc['did']['origination']['corpname'],
+        children=[parseDsc(serie) for serie in archdesc['dsc']['c01']])
 
-    collectionNumber = head['eadid']
-    
-    title = head['filedesc']['titlestmt']['titleproper']
-    author = head['filedesc']['titlestmt']['author']
-    publisher = head['filedesc']['publicationstmt']['publisher']
-    date = head['filedesc']['publicationstmt']['date']
+    return collection
 
-    # description
-
-    ## did
-
-    collection_id = archdesc['did']['@id']
-    collectionNumber = archdesc['did']['unitid']
-    collectionName = archdesc['did']['unittitle']
-    collectionDate = archdesc['did']['unitdate']
-    collectionLanguage = archdesc['did']['langmaterial']
-    collectionRepository = archdesc['did']['repository']['corpname']
-    collectionOrigination = archdesc['did']['origination']['@label']
-    collectionCorporation = archdesc['did']['origination']['corpname']
-
-    ## odd
-
-    # descriptive stuff in html
-
-    ## dsc
-
-    dsc = archdesc['dsc']
-
-    # print(archdesc['dsc'].keys())
-
-    for serie in dsc['c01']:
-
-        print(parseDID(serie))
-
-        # if serie =='head':
-        #     continue
-
-        # print(serie.keys())
-        
-        # serie_id = serie['did']['@id']
-        # serieCode = serie['did']['unitid']
-        # serieTitle = serie['did']['unittitle']
-
-        # for subserie in serie['c02']:
-        #     subserie_id = subserie['did']['@id']
-        #     subserieCode = subserie['did']['unitid']
-        #     subserieTitle = subserie['did']['unittitle']
-
-        #     for subgroup in subserie['c03']:
-        #         subgroup_id = subgroup['did']['@id']
-        #         subgroupCode = subgroup['did']['unitid']
-        #         subgroupTitle = subgroup['did']['unittitle']   
-
-        #         print(subgroupTitle)
-
-        #         for inventory in subgroup['c04']:
-        #             file_id = inventory['did']['@id']
-        #             fileCode = inventory['did']['unitid']
-        #             fileTitle = inventory['did']['unittitle'] 
-
-                    
-                    # print(scans)    
-    ###
 
 if __name__ == '__main__':
     arguments = docopt(__doc__)
     if arguments['convert'] and os.path.isfile(arguments['<xmlfile>']):
-        convert(xmlfile=arguments['<xmlfile>'], outfile=arguments['<outfile>'], format=arguments['--format'])
+        print(
+            convert(xmlfile=arguments['<xmlfile>'],
+                    outfile=arguments['<outfile>'],
+                    format=arguments['--format']))
