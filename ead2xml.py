@@ -18,6 +18,8 @@ from docopt import docopt
 
 from dataclasses import dataclass
 
+from model import SAACollection, ga, Namespace
+
 
 @dataclass
 class Collection:
@@ -96,15 +98,14 @@ def parseDsc(serie, parentElement=None):
         for k in serie:
             if k not in ['head', '@level', 'did']:
                 for subelement in serie[k]:
-                    children.append(parseDsc(subelement))
+                    if type(subelement) != str:
+                        children.append(parseDsc(subelement))
 
         return C(id, code, date, title, comment, scans, children,
                  serie['@level'])
 
 
-def convert(xmlfile, outfile, format='saa'):
-
-    ead = parseEAD(xmlfile)
+def parseCollection(ead):
 
     head = ead['eadheader']
     archdesc = ead['archdesc']
@@ -116,9 +117,9 @@ def convert(xmlfile, outfile, format='saa'):
         publisher=head['filedesc']['publicationstmt']['publisher'],
         date=head['filedesc']['publicationstmt'].get('date'),
         collection_id=archdesc['did']['@id'],
-        collectionNumber=archdesc['did']['unitid'],
-        collectionName=archdesc['did']['unittitle'],
-        collectionDate=archdesc['did']['unitdate'],
+        collectionNumber=archdesc['did']['unitid']['#text'],
+        collectionName=archdesc['did']['unittitle']['#text'],
+        collectionDate=archdesc['did']['unitdate']['#text'],
         collectionLanguage=archdesc['did']['langmaterial'],
         collectionRepository=archdesc['did']['repository']['corpname'],
         collectionOrigination=archdesc['did']['origination']['@label'],
@@ -128,10 +129,73 @@ def convert(xmlfile, outfile, format='saa'):
     return collection
 
 
+def toRdf(collection, model='saa'):
+
+    code = collection.collectionNumber.lower().replace('.', '')
+
+    scanNamespace = Namespace(
+        f"https://archief.amsterdam/inventarissen/inventaris/{code}.nl.html#")
+
+    col = SAACollection(ga.term(collection.collection_id),
+                        identifier=collection.collection_id,
+                        code=collection.collectionNumber,
+                        title=collection.title,
+                        publisher=collection.publisher,
+                        date=collection.collectionDate,
+                        label=[collection.title])
+
+    parts = [
+        cToRdf(c, parent=col, scanNamespace=scanNamespace)
+        for c in collection.children
+    ]
+
+    if parts != []:
+        col.hasParts = parts
+
+    return col.db
+
+
+def cToRdf(c, parent=None, scanNamespace=None):
+
+    if c.scans and scanNamespace:
+        urlScans = [scanNamespace.term(i) for i in c.scans]
+    else:
+        urlScans = c.scans
+
+    col = SAACollection(ga.term(c.id),
+                        identifier=c.id,
+                        code=c.code,
+                        title=c.title,
+                        date=c.date,
+                        comment=[c.comment] if c.comment else None,
+                        scans=urlScans,
+                        partOf=parent,
+                        label=[c.title])
+
+    parts = [
+        cToRdf(c, parent=col, scanNamespace=scanNamespace) for c in c.children
+    ]
+
+    if parts != []:
+        col.hasParts = parts
+
+    return col
+
+
+def convert(xmlfile, outfile, model='saa'):
+
+    ead = parseEAD(xmlfile)
+    collection = parseCollection(ead)
+
+    g = toRdf(collection)
+
+    g.serialize(destination=outfile, format='turtle')
+
+
 if __name__ == '__main__':
     arguments = docopt(__doc__)
     if arguments['convert'] and os.path.isfile(arguments['<xmlfile>']):
-        print(
-            convert(xmlfile=arguments['<xmlfile>'],
-                    outfile=arguments['<outfile>'],
-                    format=arguments['--format']))
+
+        convert(xmlfile=arguments['<xmlfile>'],
+                outfile=arguments['<outfile>'],
+                model=arguments['--format'])
