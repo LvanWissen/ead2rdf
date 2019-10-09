@@ -10,7 +10,7 @@ schema = Namespace("https://schema.org/")
 sem = Namespace("http://semanticweb.cs.vu.nl/2009/11/sem/")
 geos = Namespace("http://www.opengis.net/ont/geosparql#")
 
-ga = Namespace("http://goldenagents.org/uva/SAA/datasets/")
+ga = Namespace("https://data.goldenagents.org/datasets/saa/")
 saa = Namespace("http://goldenagents.org/uva/SAA/ontology/")
 foaf = Namespace("http://xmlns.com/foaf/0.1/")
 
@@ -34,22 +34,40 @@ class Entity(rdfSubject):
     qualifiedDerivation = rdfSingle(prov.qualifiedDerivation,
                                     range_type=prov.Derivation)
 
-
-class SAACollection(Entity):
-    rdf_type = saa.Collection
+    partOf = rdfSingle(saa.partOf)
+    hasParts = rdfMultiple(saa.hasParts)
 
     code = rdfSingle(saa.code)
     identifier = rdfSingle(saa.identifier)
 
     title = rdfSingle(saa.title)
-    publisher = rdfSingle(saa.publisher)
     date = rdfSingle(saa.date)
 
-    partOf = rdfSingle(saa.partOf)
-    hasParts = rdfMultiple(saa.hasParts)
 
-    scans = rdfMultiple(saa.urlScan)
+class SAACollection(Entity):
+    rdf_type = saa.Collection
+
+    publisher = rdfSingle(saa.publisher)
+
+
+class SAADocument(Entity):
+    rdf_type = saa.Document
+
+
+class SAAInventoryBook(SAADocument):
+    rdf_type = saa.InventoryBook
+    inventoryNumber = rdfSingle(saa.inventoryNumber)
+
+
+class SAADoublePageSpread(SAADocument):
+    rdf_type = saa.DoublePageSpread
+
+    hasDigitalrepresentation = rdfSingle(saa.hasDigitalRepresentation,
+                                         range_type=saa.Scan)
 
 
 class SAAScan(Entity):
     rdf_type = saa.Scan
+
+    url = rdfSingle(saa.url)
+    depiction = rdfSingle(foaf.depiction)

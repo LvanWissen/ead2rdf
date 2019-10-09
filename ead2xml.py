@@ -18,7 +18,7 @@ from docopt import docopt
 
 from dataclasses import dataclass
 
-from model import SAACollection, ga, Namespace
+from model import SAACollection, SAAInventoryBook, SAAScan, SAADoublePageSpread, ga, Namespace, Literal
 
 
 @dataclass
@@ -131,10 +131,10 @@ def parseCollection(ead):
 
 def toRdf(collection, model='saa'):
 
-    code = collection.collectionNumber.lower().replace('.', '')
-
+    collectionNumber = collection.collectionNumber.lower().replace('.', '')
     scanNamespace = Namespace(
-        f"https://archief.amsterdam/inventarissen/inventaris/{code}.nl.html#")
+        f"https://archief.amsterdam/inventarissen/inventaris/{collectionNumber}.nl.html#"
+    )
 
     col = SAACollection(ga.term(collection.collection_id),
                         identifier=collection.collection_id,
@@ -145,8 +145,10 @@ def toRdf(collection, model='saa'):
                         label=[collection.title])
 
     parts = [
-        cToRdf(c, parent=col, scanNamespace=scanNamespace)
-        for c in collection.children
+        cToRdf(c,
+               parent=col,
+               collectionId=collection.collection_id,
+               scanNamespace=scanNamespace) for c in collection.children
     ]
 
     if parts != []:
@@ -155,29 +157,65 @@ def toRdf(collection, model='saa'):
     return col.db
 
 
-def cToRdf(c, parent=None, scanNamespace=None):
+def cToRdf(c, parent=None, collectionId=None, scanNamespace=None):
 
-    if c.scans and scanNamespace:
-        urlScans = [scanNamespace.term(i) for i in c.scans]
+    if collectionId:
+        saaCollection = Namespace(
+            f"https://data.goldenagents.org/datasets/saa/{collectionId}/")
     else:
-        urlScans = c.scans
+        saaCollection = ga
 
-    col = SAACollection(ga.term(c.id),
-                        identifier=c.id,
-                        code=c.code,
-                        title=c.title,
-                        date=c.date,
-                        comment=[c.comment] if c.comment else None,
-                        scans=urlScans,
-                        partOf=parent,
-                        label=[c.title])
+    if (c.scans or not c.children) and collectionId:
+        # Then this is a book --> InventoryBook
 
-    parts = [
-        cToRdf(c, parent=col, scanNamespace=scanNamespace) for c in c.children
-    ]
+        inventoryId = c.id
+        saaInventory = Namespace(
+            f"https://data.goldenagents.org/datasets/saa/{collectionId}/{inventoryId}/"
+        )
 
-    if parts != []:
-        col.hasParts = parts
+        if c.scans:
+            urlScans = [scanNamespace.term(i) for i in c.scans]
+            scans = [saaInventory.term(i) for i in c.scans]
+
+            parts = [
+                SAAScan(sUri, url=imgUri)
+                for sUri, imgUri in zip(scans, urlScans)
+            ]
+        else:
+            parts = None
+
+        col = SAAInventoryBook(
+            saaCollection.term(c.id),
+            identifier=c.id,
+            inventoryNumber=c.code,
+            title=c.title,
+            label=[Literal(f"Inventaris {c.code}", lang='nl')],
+            date=c.date,
+            hasParts=parts)
+
+    else:
+        # Not yet reached the end of the tree
+
+        collectionId = f"{collectionId}/{c.id}"
+
+        col = SAACollection(saaCollection.term(c.id),
+                            identifier=c.id,
+                            code=c.code,
+                            title=c.title,
+                            date=c.date,
+                            comment=[c.comment] if c.comment else None,
+                            partOf=parent,
+                            label=[c.title])
+
+        parts = [
+            cToRdf(c,
+                   parent=col,
+                   collectionId=collectionId,
+                   scanNamespace=scanNamespace) for c in c.children
+        ]
+
+        if parts != []:
+            col.hasParts = parts
 
     return col
 
