@@ -16,6 +16,9 @@ import os
 import xmltodict
 from docopt import docopt
 
+from datetime import datetime, timedelta
+from dateutil import parser
+
 from dataclasses import dataclass
 
 from model import SAACollection, SAAInventoryBook, SAAScan, SAADoublePageSpread, ga, Namespace, Literal
@@ -129,6 +132,83 @@ def parseCollection(ead):
     return collection
 
 
+def parseDate(date,
+              circa=None,
+              default=None,
+              defaultBegin=datetime(2100, 1, 1),
+              defaultEnd=datetime(2100, 12, 31)):
+
+    if date is None or date == 's.d.':
+        return {}
+
+    date = date.strip()
+
+    if '-' in date:
+        begin, end = date.split('-')
+
+        begin = parseDate(begin, default=defaultBegin)
+        end = parseDate(end, default=defaultEnd)
+    elif 'ca.' in date:
+        date, _ = date.split('ca.')
+
+        begin = parseDate(date, default=defaultBegin, circa=365)
+        end = parseDate(date, default=defaultEnd, circa=365)
+
+    else:  # exact date ?
+
+        if circa:
+            begin = parser.parse(date, default=defaultBegin) - timedelta(circa)
+            end = parser.parse(date, default=defaultEnd) + timedelta(circa)
+        else:
+            begin = parser.parse(date, default=defaultBegin)
+            end = parser.parse(date, default=defaultEnd)
+
+    # And now some sem magic
+
+    if begin == end:
+        timeStamp = begin
+    else:
+        timeStamp = None
+
+    if type(begin) == tuple:
+        earliestBeginTimeStamp = begin[0]
+        latestBeginTimeStamp = begin[1]
+        beginTimeStamp = None
+        timeStamp = None
+    else:
+        earliestBeginTimeStamp = begin
+        latestBeginTimeStamp = begin
+        beginTimeStamp = begin
+
+    if type(end) == tuple:
+        earliestEndTimeStamp = end[0]
+        latestEndTimeStamp = end[1]
+        endTimeStamp = None
+    else:
+        earliestEndTimeStamp = end
+        latestEndTimeStamp = end
+        endTimeStamp = end
+
+    if default:
+        if type(begin) == tuple:
+            begin = min(begin)
+        if type(end) == tuple:
+            end = max(end)
+        return begin, end
+
+    dt = {
+        "hasTimeStamp": timeStamp,
+        "hasBeginTimeStamp": beginTimeStamp,
+        "hasEarliestBeginTimeStamp": earliestBeginTimeStamp,
+        "hasLatestBeginTimeStamp": latestBeginTimeStamp,
+        "hasEndTimeStamp": endTimeStamp,
+        "hasEarliestEndTimeStamp": earliestEndTimeStamp,
+        "hasLatestEndTimeStamp": latestEndTimeStamp
+    }
+
+    return dt
+
+
 def toRdf(collection, model='saa'):
 
     collectionNumber = collection.collectionNumber.lower().replace('.', '')
@@ -136,7 +216,7 @@ def toRdf(collection, model='saa'):
         f"https://archief.amsterdam/inventarissen/inventaris/{collectionNumber}.nl.html#"
     )
 
-    col = SAACollection(ga.term(collection.collection_id),
+    col = SAACollection(ga.term(collectionNumber),
                         identifier=collection.collection_id,
                         code=collection.collectionNumber,
                         title=collection.title,
@@ -147,7 +227,7 @@ def toRdf(collection, model='saa'):
     parts = [
         cToRdf(c,
                parent=col,
-               collectionId=collection.collection_id,
+               collectionNumber=collectionNumber,
                scanNamespace=scanNamespace) for c in collection.children
     ]
 
@@ -157,20 +237,20 @@ def toRdf(collection, model='saa'):
     return col.db
 
 
-def cToRdf(c, parent=None, collectionId=None, scanNamespace=None):
+def cToRdf(c, parent=None, collectionNumber=None, scanNamespace=None):
 
-    if collectionId:
+    if collectionNumber:
         saaCollection = Namespace(
-            f"https://data.goldenagents.org/datasets/saa/{collectionId}/")
+            f"https://data.goldenagents.org/datasets/saa/{collectionNumber}/")
     else:
         saaCollection = ga
 
-    if (c.scans or not c.children) and collectionId:
+    if (c.scans or not c.children) and collectionNumber:
         # Then this is a book --> InventoryBook
 
         inventoryId = c.id
         saaInventory = Namespace(
-            f"https://data.goldenagents.org/datasets/saa/{collectionId}/{inventoryId}/"
+            f"https://data.goldenagents.org/datasets/saa/{collectionNumber}/{inventoryId}/"
         )
 
         if c.scans:
@@ -193,10 +273,15 @@ def cToRdf(c, parent=None, collectionId=None, scanNamespace=None):
             date=c.date,
             hasParts=parts)
 
+        parsedDate = parseDate(c.date)
+
+        for k, v in parsedDate.items():
+            col.__setattr__(k, v)
+
     else:
         # Not yet reached the end of the tree
 
-        collectionId = f"{collectionId}/{c.id}"
+        # collectionId = f"{collectionId}/{c.id}"
 
         col = SAACollection(saaCollection.term(c.id),
                             identifier=c.id,
@@ -210,7 +295,7 @@ def cToRdf(c, parent=None, collectionId=None, scanNamespace=None):
         parts = [
             cToRdf(c,
                    parent=col,
-                   collectionId=collectionId,
+                   collectionNumber=collectionNumber,
                    scanNamespace=scanNamespace) for c in c.children
         ]
 
@@ -234,6 +319,7 @@ if __name__ == '__main__':
     arguments = docopt(__doc__)
     if arguments['convert'] and os.path.isfile(arguments['<xmlfile>']):
 
+        print(f"Parsing {arguments['<xmlfile>']}")
         convert(xmlfile=arguments['<xmlfile>'],
                 outfile=arguments['<outfile>'],
                 model=arguments['--format'])

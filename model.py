@@ -43,6 +43,14 @@ class Entity(rdfSubject):
     title = rdfSingle(saa.title)
     date = rdfSingle(saa.date)
 
+    hasTimeStamp = rdfSingle(sem.hasTimeStamp)
+    hasBeginTimeStamp = rdfSingle(sem.hasBeginTimeStamp)
+    hasEndTimeStamp = rdfSingle(sem.hasEndTimeStamp)
+    hasEarliestBeginTimeStamp = rdfSingle(sem.hasEarliestBeginTimeStamp)
+    hasLatestBeginTimeStamp = rdfSingle(sem.hasLatestBeginTimeStamp)
+    hasEarliestEndTimeStamp = rdfSingle(sem.hasEarliestEndTimeStamp)
+    hasLatestEndTimeStamp = rdfSingle(sem.hasLatestEndTimeStamp)
+
 
 class SAACollection(Entity):
     rdf_type = saa.Collection
