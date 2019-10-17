@@ -70,7 +70,7 @@ class SAAInventoryBook(SAADocument):
 class SAADoublePageSpread(SAADocument):
     rdf_type = saa.DoublePageSpread
 
-    hasDigitalrepresentation = rdfSingle(saa.hasDigitalRepresentation,
+    hasDigitalRepresentation = rdfSingle(saa.hasDigitalRepresentation,
                                          range_type=saa.Scan)
 
 

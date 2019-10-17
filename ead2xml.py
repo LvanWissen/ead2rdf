@@ -21,7 +21,7 @@ from dateutil import parser
 
 from dataclasses import dataclass
 
-from model import SAACollection, SAAInventoryBook, SAAScan, SAADoublePageSpread, ga, Namespace, Literal
+from model import SAACollection, SAAInventoryBook, SAAScan, SAADoublePageSpread, ga, saa, Namespace, Literal, XSD, sem, foaf
 
 
 @dataclass
@@ -163,6 +163,9 @@ def parseDate(date,
             begin = parser.parse(date, default=defaultBegin)
             end = parser.parse(date, default=defaultEnd)
 
+    begin = begin
+    end = end
+
     # And now some sem magic
 
     if begin == end:
@@ -254,12 +257,19 @@ def cToRdf(c, parent=None, collectionNumber=None, scanNamespace=None):
         )
 
         if c.scans:
+
+            saaScan = Namespace(
+                f"https://data.goldenagents.org/datasets/saa/scan/")
+
             urlScans = [scanNamespace.term(i) for i in c.scans]
             scans = [saaInventory.term(i) for i in c.scans]
 
             parts = [
-                SAAScan(sUri, url=imgUri)
-                for sUri, imgUri in zip(scans, urlScans)
+                SAADoublePageSpread(sUri,
+                                    hasDigitalRepresentation=SAAScan(
+                                        saaScan.term(img), depiction=imgUri),
+                                    partOf=saaCollection.term(c.id))
+                for img, sUri, imgUri in zip(c.scans, scans, urlScans)
             ]
         else:
             parts = None
@@ -276,7 +286,8 @@ def cToRdf(c, parent=None, collectionNumber=None, scanNamespace=None):
         parsedDate = parseDate(c.date)
 
         for k, v in parsedDate.items():
-            col.__setattr__(k, v)
+            if v:
+                col.__setattr__(k, Literal(v.date(), datatype=XSD.date))
 
     else:
         # Not yet reached the end of the tree
@@ -312,6 +323,10 @@ def convert(xmlfile, outfile, model='saa'):
 
     g = toRdf(collection)
 
+    g.bind('saa', saa)
+    g.bind('sem', sem)
+    g.bind('foaf', foaf)
+
     g.serialize(destination=outfile, format='turtle')
 
 
@@ -323,3 +338,4 @@ if __name__ == '__main__':
         convert(xmlfile=arguments['<xmlfile>'],
                 outfile=arguments['<outfile>'],
                 model=arguments['--format'])
+        print(f"File written to {arguments['<outfile>']}")
