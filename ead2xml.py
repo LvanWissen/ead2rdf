@@ -259,7 +259,7 @@ def cToRdf(c, parent=None, collectionNumber=None, scanNamespace=None):
         if c.scans:
 
             saaScan = Namespace(
-                f"https://data.goldenagents.org/datasets/saa/scan/")
+                f"https://data.goldenagents.org/datasets/SAA/Scan/")
 
             urlScans = [scanNamespace.term(i) for i in c.scans]
             scans = [saaInventory.term(i) for i in c.scans]
@@ -272,7 +272,7 @@ def cToRdf(c, parent=None, collectionNumber=None, scanNamespace=None):
                 for img, sUri, imgUri in zip(c.scans, scans, urlScans)
             ]
         else:
-            parts = None
+            parts = []
 
         col = SAAInventoryBook(
             saaCollection.term(c.id),
@@ -283,7 +283,10 @@ def cToRdf(c, parent=None, collectionNumber=None, scanNamespace=None):
             date=c.date,
             hasParts=parts)
 
-        parsedDate = parseDate(c.date)
+        try:
+            parsedDate = parseDate(c.date)
+        except:
+            print(c.date)
 
         for k, v in parsedDate.items():
             if v:
@@ -299,7 +302,7 @@ def cToRdf(c, parent=None, collectionNumber=None, scanNamespace=None):
                             code=c.code,
                             title=c.title,
                             date=c.date,
-                            comment=[c.comment] if c.comment else None,
+                            comment=[c.comment] if c.comment else [],
                             partOf=parent,
                             label=[c.title])
 
