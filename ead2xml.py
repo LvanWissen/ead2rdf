@@ -21,6 +21,9 @@ from dateutil import parser
 
 from dataclasses import dataclass
 
+from rdflib import Graph
+from rdfalchemy import rdfSubject
+
 from model import SAACollection, SAAInventoryBook, SAAScan, SAADoublePageSpread, ga, saa, Namespace, Literal, XSD, sem, foaf
 
 
@@ -214,6 +217,8 @@ def parseDate(date,
 
 def toRdf(collection, model='saa'):
 
+    g = rdfSubject.db = Graph(identifier=ga.term('collections'))
+
     collectionNumber = collection.collectionNumber.lower().replace('.', '')
     scanNamespace = Namespace(
         f"https://archief.amsterdam/inventarissen/inventaris/{collectionNumber}.nl.html#"
@@ -237,7 +242,7 @@ def toRdf(collection, model='saa'):
     if parts != []:
         col.hasParts = parts
 
-    return col.db
+    return g
 
 
 def cToRdf(c, parent=None, collectionNumber=None, scanNamespace=None):

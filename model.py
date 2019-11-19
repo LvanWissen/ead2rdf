@@ -10,8 +10,8 @@ schema = Namespace("https://schema.org/")
 sem = Namespace("http://semanticweb.cs.vu.nl/2009/11/sem/")
 geos = Namespace("http://www.opengis.net/ont/geosparql#")
 
-ga = Namespace("https://data.goldenagents.org/datasets/saa/")
-saa = Namespace("http://goldenagents.org/uva/SAA/ontology/")
+ga = Namespace("https://data.goldenagents.org/datasets/SAA/")
+saa = Namespace("https://data.goldenagents.org/datasets/SAA/ontology/")
 foaf = Namespace("http://xmlns.com/foaf/0.1/")
 
 AS = Namespace("http://www.w3.org/ns/activitystreams#")
