@@ -249,7 +249,7 @@ def cToRdf(c, parent=None, collectionNumber=None, scanNamespace=None):
 
     if collectionNumber:
         saaCollection = Namespace(
-            f"https://data.goldenagents.org/datasets/saa/{collectionNumber}/")
+            f"https://data.goldenagents.org/datasets/SAA/{collectionNumber}/")
     else:
         saaCollection = ga
 
@@ -258,7 +258,7 @@ def cToRdf(c, parent=None, collectionNumber=None, scanNamespace=None):
 
         inventoryId = c.id
         saaInventory = Namespace(
-            f"https://data.goldenagents.org/datasets/saa/{collectionNumber}/{inventoryId}/"
+            f"https://data.goldenagents.org/datasets/SAA/{collectionNumber}/{inventoryId}/"
         )
 
         if c.scans:
