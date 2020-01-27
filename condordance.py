@@ -118,8 +118,6 @@ if __name__ == "__main__":
                 'scans': scans
             }
 
-            break
-
         # save to disc
         with open(arguments['<outfile>'], 'w', encoding='utf-8') as outfile:
             json.dump(data, outfile, indent=4)
