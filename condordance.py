@@ -1,8 +1,23 @@
+"""
+saa-concordance
+
+Usage:
+    concordance.py <xmlfile> <outfile>
+    concordance.py (-h | --help)
+    concordance.py --version
+
+Options:
+    -h --help       Show this screen.
+    --version       Show version.
+"""
+
+import os
 import collections
 import json
 import math
 import time
 
+from docopt import docopt
 import requests
 
 from ead2xml import parseEAD, parseCollection
@@ -80,28 +95,31 @@ def getScans(path, nscans, collectionNumber, start=0, limit=100,
 
 if __name__ == "__main__":
 
-    xmlfile = "/home/leon/Documents/Golden_Agents/ead2rdf/EAD_5001.xml"
+    arguments = docopt(__doc__)
 
-    ead = parseEAD(xmlfile)
-    collection = parseCollection(ead)
-    collectionNumber = collection.collectionNumber
+    if os.path.isfile(arguments['<xmlfile>']):
+        xmlfile = arguments['<xmlfile>']
 
-    paths = list(flatten(enumerateChildren(collection)))
-    npaths = len(paths)
+        ead = parseEAD(xmlfile)
+        collection = parseCollection(ead)
+        collectionNumber = collection.collectionNumber
 
-    data = collections.defaultdict(dict)  # store in dict
-    for n, (inventoryNumber, path, nscans) in enumerate(paths, 1):
-        print(f"{n}/{npaths}\tFetching {path} ({nscans} scans)")
-        scans = getScans(path, nscans, collectionNumber)
+        paths = list(flatten(enumerateChildren(collection)))
+        npaths = len(paths)
 
-        data[collectionNumber][inventoryNumber] = {
-            'path': path,
-            'scancount': nscans,
-            'scans': scans
-        }
+        data = collections.defaultdict(dict)  # store in dict
+        for n, (inventoryNumber, path, nscans) in enumerate(paths, 1):
+            print(f"{n}/{npaths}\tFetching {path} ({nscans} scans)")
+            scans = getScans(path, nscans, collectionNumber)
 
-        break
+            data[collectionNumber][inventoryNumber] = {
+                'path': path,
+                'scancount': nscans,
+                'scans': scans
+            }
 
-    # save to disc
-    with open(f"{collectionNumber}.json", 'w', encoding='utf-8') as outfile:
-        json.dump(data, outfile, indent=4)
+            break
+
+        # save to disc
+        with open(arguments['<outfile>'], 'w', encoding='utf-8') as outfile:
+            json.dump(data, outfile, indent=4)
