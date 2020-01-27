@@ -22,7 +22,7 @@ import requests
 
 from ead2xml import parseEAD, parseCollection
 
-APIURL = "https://webservices.picturae.com/archives/scans/5001/"
+APIURL = "https://webservices.picturae.com/archives/scans/"
 
 
 def enumerateChildren(collection, path=None, n=0):
@@ -67,7 +67,7 @@ def flatten(iterable):
 def getScans(path, nscans, collectionNumber, start=0, limit=100,
              APIURL=APIURL):
 
-    url = APIURL + path
+    url = APIURL + collectionNumber + '/' + path
     arguments = {
         'apiKey': 'eb37e65a-eb47-11e9-b95c-60f81db16c0e',
         'lang': 'nl_NL',
