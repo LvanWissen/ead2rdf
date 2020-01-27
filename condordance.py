@@ -86,13 +86,21 @@ if __name__ == "__main__":
     collection = parseCollection(ead)
     collectionNumber = collection.collectionNumber
 
-    paths = flatten(enumerateChildren(collection))
+    paths = list(flatten(enumerateChildren(collection)))
+    npaths = len(paths)
 
     data = collections.defaultdict(dict)  # store in dict
-    for inventoryNumber, path, nscans in paths:
+    for n, (inventoryNumber, path, nscans) in enumerate(paths, 1):
+        print(f"{n}/{npaths}\tFetching {path} ({nscans} scans)")
         scans = getScans(path, nscans, collectionNumber)
 
-        data[collectionNumber][inventoryNumber] = scans
+        data[collectionNumber][inventoryNumber] = {
+            'path': path,
+            'scancount': nscans,
+            'scans': scans
+        }
+
+        break
 
     # save to disc
     with open(f"{collectionNumber}.json", 'w', encoding='utf-8') as outfile:
